@@ -12,13 +12,16 @@ import streamlit as st
 from cwr import CROPS, SOILS, compute_daily, run_ensemble, run_schedule, season_frame
 from cwr.climate import climatology, rainfall_outlier_years
 from cwr.crops import kc_curve
-from cwr.plots import fig_ensemble, fig_kc, fig_soil_water, fig_water_demand
+from cwr.plots import PLOT_CONFIG, fig_ensemble, fig_kc, fig_soil_water, fig_water_demand
+from cwr.ui import answer_card, empty_state, footer, inject_css, masthead
 from cwr.report import build_pdf
 from cwr.soils import Soil
 from cwr.weather import (WeatherDataError, clean_weather, fetch_nasa_power,
                          load_weather_csv, synthetic_demo_weather)
 
-st.set_page_config(page_title="Crop Water & Irrigation Scheduler", page_icon="💧", layout="wide")
+st.set_page_config(page_title="Crop Water & Irrigation Scheduler", page_icon="💧", layout="wide",
+                   initial_sidebar_state="auto")
+inject_css()
 
 PRESET_LOCATIONS = {
     "Khanewal, Punjab": (30.30, 71.93),
@@ -38,9 +41,9 @@ HISTORY_YEARS = 10
 
 def show_plot(fig):
     try:
-        st.plotly_chart(fig, width="stretch")
+        st.plotly_chart(fig, width="stretch", config=PLOT_CONFIG)
     except TypeError:                      # older Streamlit
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True, config=PLOT_CONFIG)
 
 
 def show_df(df, **kw):
@@ -65,9 +68,7 @@ def load_demo(lat: float, first_year: int):
 # --------------------------------------------------------------------------- #
 # Sidebar - inputs
 # --------------------------------------------------------------------------- #
-st.title("💧 Crop Water Requirement & Irrigation Scheduling")
-st.caption("FAO-56 Penman-Monteith ET0 · single crop coefficient · daily root-zone water balance · "
-           "NASA POWER weather")
+masthead()
 
 with st.sidebar:
     st.header("1. Location & weather")
@@ -146,12 +147,7 @@ with st.sidebar:
 if run:
     st.session_state["go"] = True
 if not st.session_state.get("go"):
-    st.info("Set up your field in the sidebar and press **Calculate**. Choose *Demo data* to try the "
-            "tool without internet (synthetic weather, for testing only).")
-    c1, c2, c3 = st.columns(3)
-    c1.markdown("**1. Weather** → NASA POWER daily data for your coordinates.")
-    c2.markdown("**2. ET0** → FAO-56 Penman-Monteith, then ETc = Kc × ET0.")
-    c3.markdown("**3. Schedule** → daily soil water balance tells you when and how much to irrigate.")
+    empty_state()
     st.stop()
 
 first_year = date.today().year - HISTORY_YEARS
@@ -189,7 +185,8 @@ except Exception as exc:  # noqa: BLE001 - show a readable message in the UI
 
 s = res.summary
 if source.startswith("Demo"):
-    st.warning("⚠️ You are viewing **synthetic demo weather**. Do not use these numbers for real decisions.")
+    st.warning("You are viewing **synthetic demo weather**. Do not use these numbers for real decisions.")
+answer_card(res)
 if s.get("days_from_climatology"):
     st.info(f"Weather is observed until **{last_obs:%d %b %Y}**. The remaining "
             f"**{s['days_from_climatology']} season days** use a typical year (the median of the last "
@@ -206,7 +203,7 @@ m4.metric("Gross water (per acre)", f"{s['gross_m3_per_acre']:,.0f} m³",
           f"{s['gross_irrigation_mm']:.0f} mm at the field inlet", delta_color="off")
 
 tab_sched, tab_charts, tab_other, tab_daily, tab_method = st.tabs(
-    ["📅 Schedule", "📈 Charts", "📊 Other years", "🧮 Daily table", "📘 Method"])
+    ["Schedule", "Charts", "Other years", "Daily table", "Method"])
 
 with tab_sched:
     if len(res.events):
@@ -214,15 +211,12 @@ with tab_sched:
             "date": "Date", "day_after_sowing": "Days after sowing", "stage": "Growth stage",
             "net_mm": "Net (mm)", "gross_mm": "Gross (mm)", "m3_per_ha": "m³/ha",
             "m3_per_acre": "m³/acre", "days_since_last": "Days since last"}))
-        first = res.events.iloc[0]
-        st.success(f"First irrigation: **{first['date']:%d %b %Y}** (day {int(first['day_after_sowing'])}) - "
-                   f"apply about **{first['gross_mm']:.0f} mm** gross.")
     else:
-        st.success("No irrigation needed in this season under the chosen settings.")
+        st.info("No irrigation needed in this season under the chosen settings.")
     st.markdown(
-        f"**Season** {s['sowing_date']:%d %b %Y} → {s['harvest_date']:%d %b %Y} ({s['season_days']} days) · "
-        f"rain {s['rain_total_mm']:.0f} mm (effective {s['eff_rain_total_mm']:.0f}) · "
-        f"deep percolation {s['deep_percolation_mm']:.0f} mm")
+        f"**Season** {s['sowing_date']:%d %b %Y} to {s['harvest_date']:%d %b %Y} ({s['season_days']} days). "
+        f"Rain {s['rain_total_mm']:.0f} mm (effective {s['eff_rain_total_mm']:.0f} mm). "
+        f"Deep percolation loss {s['deep_percolation_mm']:.0f} mm.")
     rs_ = rainfed.summary
     st.caption(f"Without any irrigation, the crop would use only {rs_['eta_etc_ratio']*100:.0f}% of its "
                f"potential water demand and be stressed on {rs_['stress_days']} days.")
@@ -293,12 +287,14 @@ inputs = {
     "Climate scenario": f"+{d_t} C, rainfall {r_f:+d}%" if (d_t or r_f) else "none (observed climate)",
 }
 d1, d2, d3 = st.columns(3)
-d1.download_button("⬇️ Schedule (CSV)", res.events.to_csv(index=False).encode(), "irrigation_schedule.csv",
+d1.download_button("Download schedule (CSV)", res.events.to_csv(index=False).encode(), "irrigation_schedule.csv",
                    "text/csv")
-d2.download_button("⬇️ Daily water balance (CSV)", res.daily.reset_index().to_csv(index=False).encode(),
+d2.download_button("Download daily balance (CSV)", res.daily.reset_index().to_csv(index=False).encode(),
                    "daily_water_balance.csv", "text/csv")
 try:
     pdf = build_pdf(res.summary, res.events, res.daily, inputs)
-    d3.download_button("⬇️ Report (PDF)", pdf, "irrigation_report.pdf", "application/pdf")
+    d3.download_button("Download report (PDF)", pdf, "irrigation_report.pdf", "application/pdf")
 except Exception as exc:  # noqa: BLE001
     d3.caption(f"PDF unavailable: {exc}")
+
+footer()
