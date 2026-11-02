@@ -141,13 +141,6 @@ validation/            Cross-check against pyet
 examples/              Offline demo script
 ```
 
-## Deploy free on Streamlit Community Cloud
-
-1. Push this folder to a public GitHub repository (include `requirements.txt`).
-2. Go to <https://share.streamlit.io>, sign in with GitHub, click **New app**.
-3. Pick the repository, branch `main`, main file `app.py`, then **Deploy**.
-4. Paste the resulting link into the "Live demo" line above and on your CV.
-
 ## Data and references
 
 * NASA POWER Project, <https://power.larc.nasa.gov> (data courtesy of NASA Langley Research Center).
