@@ -34,6 +34,8 @@ flowchart LR
 5. **Water balance:** each day the root zone loses ETc and gains effective rain. When depletion passes the readily available water (RAW), an irrigation is scheduled.
 6. **Outputs:** dates and depths, soil water charts, a comparison with past years, and downloads.
 
+> **Live demo:** [crop-water-scheduler.streamlit.app](https://crop-water-scheduler-7sixsqwvnamshpzi5hjznl.streamlit.app/)
+
 ## Why it matters
 
 Irrigation in many canal-irrigated regions follows fixed turns or habit, which leads to
