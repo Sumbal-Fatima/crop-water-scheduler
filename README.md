@@ -10,6 +10,30 @@ calendar (dates and depths), charts, CSV files and a PDF report.
 
 > **Live demo:** _add your Streamlit Community Cloud link here after deploying_
 
+## How it works
+
+```mermaid
+flowchart LR
+    A["Inputs<br/>location, crop,<br/>sowing date, soil"] --> B["Daily weather<br/>NASA POWER<br/>or your CSV"]
+    B --> C["Reference ET0<br/>FAO-56<br/>Penman-Monteith"]
+    C --> D["Crop water use<br/>ETc = Kc x ET0"]
+    D --> E["Soil water balance<br/>depletion vs RAW"]
+    F["Rainfall<br/>effective part"] --> E
+    E --> G{"Depletion<br/>above RAW?"}
+    G -- "Yes" --> H["Irrigate:<br/>refill to field capacity<br/>gross = net / efficiency"]
+    G -- "No" --> I["Next day"]
+    H --> I
+    I --> E
+    E --> J["Outputs<br/>irrigation calendar, charts,<br/>CSV and PDF report"]
+```
+
+1. **Inputs:** you choose a location, crop, sowing date, soil and irrigation method.
+2. **Weather:** daily data come from NASA POWER (or a CSV). Days after the latest observation use a typical year (the median of the last 10 years).
+3. **ET0:** reference evapotranspiration is computed with the FAO-56 Penman-Monteith equations.
+4. **ETc:** ET0 is multiplied by the crop coefficient (Kc) for each growth stage.
+5. **Water balance:** each day the root zone loses ETc and gains effective rain. When depletion passes the readily available water (RAW), an irrigation is scheduled.
+6. **Outputs:** dates and depths, soil water charts, a comparison with past years, and downloads.
+
 ## Why it matters
 
 Irrigation in many canal-irrigated regions follows fixed turns or habit, which leads to
